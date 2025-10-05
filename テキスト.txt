@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多機能 Web 時計アプリ</title>
+    <style>
+        /* ====================
+           CSS: 明るいデザイン (文字色 全て黒)
+           ==================== */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f4f8; 
+            /* ボディの文字色を濃い黒に設定 */
+            color: #000000; 
+            margin: 0;
+            flex-direction: column;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 500px;
+            background-color: #ffffff; 
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); 
+            overflow: hidden;
+            padding-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            background-color: #e9ecef; 
+            padding: 0;
+        }
+
+        .tabs button {
+            flex-grow: 1;
+            padding: 15px 10px;
+            border: none;
+            background-color: transparent;
+            /* タブの文字色を濃いグレー */
+            color: #333333; 
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tabs button.active {
+            background-color: #ffffff;
+            /* アクティブタブのアクセントはシンプルな黒のライン */
+            border-bottom: 3px solid #000000; 
+            color: #000000; 
+            font-weight: bold;
+        }
+
+        .tab-content {
+            padding: 30px;
+            display: none;
+            text-align: center;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        h1, h2 {
+            margin: 0 0 20px 0;
+            font-size: 3em;
+            letter-spacing: 1px;
+            /* 見出しの文字色も濃い黒 */
+            color: #000000; 
+        }
+
+        .display {
+            font-size: 3.5em;
+            margin-bottom: 25px;
+            /* 時間表示も黒 */
+            color: #000000; 
+            font-weight: bold;
+        }
+
+        .controls button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            /* ボタンの背景色をアクセントカラーとして青に残す */
+            background-color: #007bff; 
+            color: white; 
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+
+        /* ラップリストのスタイル */
+        #lapList {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            background-color: #f8f9fa; 
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+
+        #lapList li {
+            padding: 8px 15px;
+            border-bottom: 1px solid #e9ecef; 
+            font-size: 1.1em;
+            color: #000000;
+        }
+
+        #lapList li:last-child {
+            border-bottom: none;
+        }
+
+        /* アラーム・タイマー共通のスタイル */
+        .setting-controls, .alarm-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        input[type="time"], input[type="number"], input[type="file"] {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ced4da; 
+            background-color: #ffffff; 
+            color: #000000; 
+            font-size: 1.1em;
+            text-align: center;
+        }
+
+        /* アラームが鳴っている時の警告スタイル */
+        .alarm-ringing {
+            background-color: #ff6b6b !important; 
+            color: white !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="tabs" id="tabs">
+        <button id="tabClock" onclick="showTab('clock')">時計</button>
+        <button id="tabAlarm" onclick="showTab('alarm')">アラーム</button>
+        <button id="tabStopwatch" onclick="showTab('stopwatch')">ストップウォッチ</button>
+        <button id="tabTimer" onclick="showTab('timer')">タイマー</button>
+    </div>
+
+    <div id="clock" class="tab-content active">
+        <h2>現在時刻</h2>
+        <div id="clockDisplay" class="display">00:00:00</div>
+    </div>
+
+    <div id="alarm" class="tab-content">
+        <h2>アラーム</h2>
+        <div class="alarm-controls">
+            <input type="time" id="alarmTime" value="07:00">
+            
+            <label>カスタムサウンド (.mp3)</label>
+            <input type="file" id="alarmSoundFile" accept="audio/mp3">
+            
+            <button onclick="setAlarm()">アラームを設定</button>
+            <button onclick="clearAlarm()">アラーム解除</button>
+            <button onclick="stopSound()">音を止める</button>
+            <p id="alarmStatus">アラームは設定されていません</p>
+        </div>
+    </div>
+
+    <div id="stopwatch" class="tab-content">
+        <h2>ストップウォッチ</h2>
+        <div id="stopwatchDisplay" class="display">00:00:00.00</div>
+        <div class="controls">
+            <button onclick="startStopwatch()">スタート</button>
+            <button onclick="stopStopwatch()">ストップ</button>
+            <button onclick="lapStopwatch()">ラップ</button>
+            <button onclick="resetStopwatch()">リセット</button>
+        </div>
+        <ul id="lapList">
+            </ul>
+    </div>
+
+    <div id="timer" class="tab-content">
+        <h2>タイマー</h2>
+        <div class="setting-controls">
+            <label>残り時間 (分)</label>
+            <input type="number" id="timerMinutes" value="5" min="1">
+
+            <label>カスタムサウンド (.mp3)</label>
+            <input type="file" id="timerSoundFile" accept="audio/mp3">
+            
+            <div id="timerDisplay" class="display">05:00</div>
+            
+            <div class="controls">
+                <button onclick="startTimer()">スタート</button>
+                <button onclick="pauseTimer()">一時停止</button>
+                <button onclick="resetTimer()">リセット</button>
+                <button onclick="stopSound()">音を止める</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<audio id="soundPlayer" loop></audio>
+
+<script>
+    // ====================
+    // JavaScript: 機能 (時計、アラーム、ストップウォッチ、タイマー)
+    // ====================
+
+    // グローバル変数
+    let activeTab = 'clock';
+    let alarmTime = null;
+    let soundPlayer = document.getElementById('soundPlayer');
+    
+    let stopwatchInterval;
+    let stopwatchStartTime = 0;
+    let stopwatchElapsedTime = 0;
+    let lapCount = 0;
+
+    let timerInterval;
+    let timerTotalSeconds = 0;
+    let timerRemainingSeconds = 0;
+    let isTimerRunning = false;
+
+
+    // ====================
+    // ユーティリティ関数
+    // ====================
+
+    /** ミリ秒を 'HH:MM:SS.ms' 形式に整形 */
+    function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        const milliseconds = Math.floor((ms % 1000) / 10); // 10ミリ秒単位
+        
+        const pad = (num, length = 2) => String(num).padStart(length, '0');
+
+        return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}.${pad(milliseconds)}`;
+    }
+
+    /** 秒を 'MM:SS' 形式に整形 */
+    function formatSeconds(totalSeconds) {
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const pad = (num) => String(num).padStart(2, '0');
+        return `${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    /** サウンドの再生を停止し、アラーム状態をリセット */
+    function stopSound() {
+        soundPlayer.pause();
+        soundPlayer.currentTime = 0;
+        document.body.classList.remove('alarm-ringing');
+        console.log("サウンド停止");
+    }
+
+    /** カスタムMP3またはデフォルトサウンドを設定 */
+    function setSoundSource(fileInputId, defaultSrc) {
+        const fileInput = document.getElementById(fileInputId);
+        if (fileInput.files.length > 0) {
+            // カスタムファイルが選択されている場合
+            const file = fileInput.files[0];
+            const url = URL.createObjectURL(file);
+            soundPlayer.src = url;
+            console.log(`カスタムサウンド設定: ${file.name}`);
+        } else {
+            // デフォルトのサウンド（ここではダミーの音源を設定。実際にはmp3ファイルを指定）
+            // 互換性のため、このデフォルト音源はユーザーが別途用意する必要があります
+            soundPlayer.src = defaultSrc || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'; 
+            console.log("デフォルトサウンド設定");
+        }
+        soundPlayer.load();
+    }
+
+
+    // ====================
+    // タブ切り替え
+    // ====================
+
+    function showTab(tabId) {
+        // すべてのタブボタンとコンテンツから active クラスを削除
+        document.querySelectorAll('.tabs button').forEach(button => {
+            button.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        // 選択されたタブとコンテンツに active クラスを追加
+        document.getElementById(`tab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`).classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+        activeTab = tabId;
+        
+        // タブ切り替え時に音を止める
+        stopSound();
+    }
+
+
+    // ====================
+    // 1. 時計機能
+    // ====================
+
+    function updateClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString(); 
+        document.getElementById('clockDisplay').textContent = timeString;
+
+        // アラームチェックは毎秒行う
+        checkAlarm(now);
+    }
+
+    // 1秒ごとに時計を更新
+    setInterval(updateClock, 1000); 
+    updateClock(); // 初回実行
+
+
+    // ====================
+    // 2. アラーム機能
+    // ====================
+
+    function setAlarm() {
+        const inputTime = document.getElementById('alarmTime').value;
+        if (!inputTime) {
+            alert('時刻を設定してください。');
+            return;
+        }
+
+        alarmTime = inputTime;
+        document.getElementById('alarmStatus').textContent = `アラーム設定: ${alarmTime}`;
+        setSoundSource('alarmSoundFile');
+        alert(`アラームが ${alarmTime} に設定されました。`);
+    }
+
+    function clearAlarm() {
+        alarmTime = null;
+        document.getElementById('alarmStatus').textContent = 'アラームは設定されていません';
+        stopSound();
+        alert('アラームが解除されました。');
+    }
+
+    function checkAlarm(now) {
+        if (!alarmTime) return;
+
+        const currentHourMinute = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+        
+        // 1分間だけアラームが鳴るように、鳴った瞬間に解除
+        if (currentHourMinute === alarmTime) {
+            triggerAlarm();
+            alarmTime = null;
+            document.getElementById('alarmStatus').textContent = 'アラームが鳴りました！'; 
+        }
+    }
+
+    function triggerAlarm() {
+        if (!soundPlayer.paused) return; // 既に鳴っている場合はスキップ
+        
+        document.body.classList.add('alarm-ringing');
+        soundPlayer.play().catch(e => {
+            console.error("サウンド再生エラー: ユーザーの操作が必要です", e);
+            alert("アラームが鳴る時間です！ (ブラウザの制限により、再生ボタンを押す必要があります)");
+        });
+        console.log("アラームが鳴り始めました！");
+    }
+
+
+    // ====================
+    // 3. ストップウォッチ機能
+    // ====================
+
+    function updateStopwatch() {
+        const now = Date.now();
+        stopwatchElapsedTime = now - stopwatchStartTime;
+        document.getElementById('stopwatchDisplay').textContent = formatTime(stopwatchElapsedTime);
+    }
+
+    function startStopwatch() {
+        if (stopwatchInterval) return; // 既に実行中の場合は何もしない
+
+        // 停止していた時間から再開できるように現在時刻を調整
+        stopwatchStartTime = Date.now() - stopwatchElapsedTime; 
+        
+        // 10ミリ秒ごとに更新
+        stopwatchInterval = setInterval(updateStopwatch, 10); 
+    }
+
+    function stopStopwatch() {
+        clearInterval(stopwatchInterval);
+        stopwatchInterval = null;
+    }
+
+    function resetStopwatch() {
+        stopStopwatch();
+        stopwatchElapsedTime = 0;
+        lapCount = 0;
+        document.getElementById('stopwatchDisplay').textContent = formatTime(0);
+        document.getElementById('lapList').innerHTML = ''; // ラップリストをクリア
+    }
+
+    function lapStopwatch() {
+        if (!stopwatchInterval) return; // 計測中でなければ何もしない
+
+        lapCount++;
+        const lapTime = formatTime(stopwatchElapsedTime);
+        const lapList = document.getElementById('lapList');
+        
+        // ラップをリストの先頭に追加
+        const li = document.createElement('li');
+        li.textContent = `Lap ${lapCount}: ${lapTime}`;
+        lapList.prepend(li);
+    }
+
+
+    // ====================
+    // 4. タイマー機能
+    // ====================
+
+    function updateTimer() {
+        if (timerRemainingSeconds <= 0) {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            document.getElementById('timerDisplay').textContent = '00:00';
+            triggerTimerAlarm();
+            return;
+        }
+
+        timerRemainingSeconds--;
+        document.getElementById('timerDisplay').textContent = formatSeconds(timerRemainingSeconds);
+    }
+
+    function startTimer() {
+        if (isTimerRunning) return;
+
+        // リセット状態からの開始の場合、残り時間を設定し直す
+        if (timerRemainingSeconds <= 0) {
+            const minutes = parseInt(document.getElementById('timerMinutes').value);
+            if (isNaN(minutes) || minutes <= 0) {
+                alert('有効な分数 (1分以上) を入力してください。');
+                return;
+            }
+            timerTotalSeconds = minutes * 60;
+            timerRemainingSeconds = timerTotalSeconds;
+            document.getElementById('timerDisplay').textContent = formatSeconds(timerRemainingSeconds);
+            setSoundSource('timerSoundFile');
+        }
+
+        isTimerRunning = true;
+        timerInterval = setInterval(updateTimer, 1000); // 1秒ごとに更新
+    }
+
+    function pauseTimer() {
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+    }
+
+    function resetTimer() {
+        pauseTimer();
+        timerRemainingSeconds = 0;
+        timerTotalSeconds = 0;
+        const defaultMinutes = document.getElementById('timerMinutes').value;
+        document.getElementById('timerDisplay').textContent = formatSeconds(defaultMinutes * 60);
+        stopSound();
+    }
+
+    function triggerTimerAlarm() {
+        document.body.classList.add('alarm-ringing');
+        soundPlayer.play().catch(e => {
+            console.error("タイマーサウンド再生エラー: ユーザーの操作が必要です", e);
+            alert("タイマーが終了しました！ (ブラウザの制限により、再生ボタンを押す必要があります)");
+        });
+        console.log("タイマーが終了し、アラームが鳴り始めました！");
+    }
+
+    // ===================================
+    // ブラウザの自動再生制限対策
+    // ===================================
+    document.addEventListener('click', function() {
+        // ユーザーがクリックした時、無音で音声要素を再生・停止する
+        if (soundPlayer.paused) {
+            // ほぼ無音のダミー音源 (1x1 GIFデータURLをオーディオとして扱う)
+            soundPlayer.src = 'data:audio/mp3;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+            soundPlayer.play().then(() => {
+                soundPlayer.pause();
+                soundPlayer.currentTime = 0;
+                soundPlayer.removeAttribute('src'); // srcをクリアしておく
+                console.log("自動再生制限を解除しました。");
+            }).catch(e => {
+                // 音声権限の取得に失敗した場合（クリックイベント外で試みた場合など）
+            });
+        }
+    }, { once: true }); // 1回だけ実行する
+
+    // 初期化
+    showTab(activeTab); 
+
+</script>
+</body>
+</html>
